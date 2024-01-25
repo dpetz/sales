@@ -1,63 +1,72 @@
 import sqlite3
 
 db_path = "data/db/liquor.sqlite"
-con = sqlite3.connect(db_path) #":memory:"
 
-con.execute("DROP TABLE IF EXISTS Store")
 
-# Stores  change name or address occasionally (max 5)
-# County Number is unique per County
-# City and Zip Code closely relate (~10 overlap both ways)
-con.execute("""
-    CREATE TABLE IF NOT EXISTS Store (
-        Number INTEGER,
-        Name TEXT,
-        Address TEXT,
-        City TEXT,
-        Zip_Code INTEGER,
-        County TEXT,
-        County_Number INTEGER,
-        Valid_From INTEGER,
-        PRIMARY KEY (Number, Valid_From)
-    )"""
-)
+with sqlite3.connect(DB_PATH) as con:
 
-con.execute("DROP TABLE IF EXISTS Item")
 
-# hash is an md5 of the 4 other fields
+    con.execute("DROP TABLE IF EXISTS Store")
 
-con.execute("""
-    CREATE TABLE IF NOT EXISTS Item (
-        Hash_Id INTEGER PRIMARY KEY,
-        Number INTEGER,
-        Description TEXT,
-        Pack INTEGER,
-        Bottle_Volume_ml INTEGER
-    )"""
-)
+    # Stores  change name or address occasionally (max 5)
+    # County Number is unique per County
+    # City and Zip Code closely relate (~10 overlap both ways)
+    con.execute("""
+        CREATE TABLE IF NOT EXISTS Store (
+            Number INTEGER NOT NULL,
+            Name TEXT NOT NULL,
+            Address TEXT NOT NULL,
+            City TEXT NOT NULL,
+            Zip_Code INTEGER NOT NULL,
+            County TEXT NOT NULL,
+            County_Number INTEGER,
+            Last_Update INTEGERDEFAULT CURRENT_TIMESTAMP NOT NULL,
+            PRIMARY KEY (Number, Last_Update)
+        )"""
+    )
 
-con.execute("DROP TABLE IF EXISTS Invoice")
+    con.execute("DROP TABLE IF EXISTS Item")
 
-# Vendors change name infrequenly (max. 4)
-# A gallon has approx. 2.8 liters
-# Profit almost always positive with mean ~$5 (51 exceptions in ~20M records)
-# Sales_USD = Bottles_Sold * Bottle_Retail_USC * 100
-# Liters sold can be calculated by looking up bottle volume in Item table
+    # hash is an md5 of the other fields (except Last_Update)
+    # all fields mostly stable (max. 6 changes per Item_Number)
+    # Category has ~0.1% missing (~17K of ~20M)
+    con.execute("""
+        CREATE TABLE IF NOT EXISTS Item (
+            Id STRING PRIMARY KEY NOT NULL,
+            Category INTEGER,
+            Category_Name TEXT NOT NULL,
+            Item_Number INTEGER NOT NULL,
+            Vendor_Number INTEGER NOT NULL,
+            Vendor_Name TEXT NOT NULL,
+            Description TEXT NOT NULL,
+            Pack INTEGER NOT NULL,
+            Bottle_Volume_ml INTEGER NOT NULL,
+            Last_Update INTEGER DEFAULT CURRENT_TIMESTAMP NOT NULL
+        )"""
+    )
 
-con.execute("""
-    CREATE TABLE IF NOT EXISTS Invoice (
-        Id TEXT PRIMARY KEY,
-        Date INTEGER,
-        Store_Number INTEGER,
-        Vendor_Number INTEGER,
-        Vendor_Name TEXT,
-        Item_Hash INTEGER,
-        Bottle_Cost_USC INTEGER,
-        Bottle_Retail_USC INTEGER,
-        Bottles_Sold INTEGER,
-        Sale_USD REAL,
-        Volume_Sold_Liters REAL,
-        Volume_Sold_Gallons REAL,
-        FOREIGN KEY(Store_Number) REFERENCES Store(Number)
-    )"""
-)
+    con.execute("DROP TABLE IF EXISTS Invoice")
+
+    # Vendors resp. Category change name infrequenly (max. 4 resp. 2)
+    # Volume_Sold_Gallons = Volume_Sold_Liters 3.8
+    # Profit almost always positive with mean ~$5 (51 exceptions in ~20M)
+    # Sales_USD = Bottles_Sold * Bottle_Retail_USC * 100
+    # Liters sold can be calculated by looking up bottle volume in Item table
+    # Missing values extremly rare (10 in ~20M)
+    con.execute("""
+        CREATE TABLE IF NOT EXISTS Invoice (
+            Id TEXT PRIMARY KEY NOT NULL,
+            Date INTEGER NOT NULL,
+            Shop INTEGER NOT NULL,
+            Item INTEGER NOT NULL,
+            Bottle_Cost_USC INTEGER,
+            Bottle_Retail_USC INTEGER,
+            Bottles_Sold INTEGER NOT NULL,
+            Sale_USD REAL,
+            Volume_Sold_Liters REAL NOT NULL,
+            Volume_Sold_Gallons REAL NOT NULL,
+            Last_Update INTEGERDEFAULT CURRENT_TIMESTAMP NOT NULL,
+            FOREIGN KEY(Shop) REFERENCES Store(Number),
+            FOREIGN KEY(Item) REFERENCES Item(Id)
+        )"""
+    )

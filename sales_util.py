@@ -3,6 +3,37 @@ import pandas as pd
 import pandas_categorical as pdc
 import os
 
+
+# optimal column types
+LIQUOR_PYTHON_NAMES = {
+    'Invoice/Item Number': "Invoice_Item_Number",
+    'Date': 'Date',
+    'Store Number': "Store_Number",
+    'Store Name': "Store_Name",
+    'Address': 'Address',
+    'City': "City",
+    'Zip Code': 'Zip_Code',
+    'Store Location': 'Store_Location',
+    'County Number': "County_Number",
+    'County': "County",
+    'Category': "Category",
+    'Category Name': 'Category_Name',
+    'Vendor Number': "Vendor_Number",
+    'Vendor Name': 'Vendor_Name',
+    'Item Number': "Item_Number",
+    'Item Description': "Item_Description",
+    'Pack': "Pack",
+    'Bottle Volume (ml)': "Bottle_Volume_ml",
+    'State Bottle Cost': 'State_Bottle_Cost',
+    'State Bottle Retail': 'State_Bottle_Retail',
+    'Bottles Sold': 'Bottles_Sold',
+    'Sale (Dollars)': 'Sale_Dollars',
+    'Volume Sold (Liters)': 'Volume_Sold_Liters',
+    'Volume Sold (Gallons)': 'Volume_Sold_Gallons'
+}
+    
+
+
 # optimal column types
 LIQUOR_DTYPES = {
     'Invoice/Item Number': "string",
@@ -71,8 +102,8 @@ def read_liquor_csv(file_name='Liquor_Sales'):
         cat_cols=LIQUOR_CAT_COLS,
         sub_dtypes=LIQUOR_DTYPES,
         ordered_cols=LIQUOR_ORDERED_COLS)
-
-    return df
+    
+    return df.rename(columns=LIQUOR_PYTHON_NAMES, copy=False)
 
 
 def infer_relation_cardinalities(df, vars=None):
