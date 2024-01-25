@@ -1,10 +1,10 @@
 import sqlite3
 
-db_path = "data/db/liquor.sqlite"
+# Out of scope: UPDATE (all tables are append-only)
 
+DB_PATH = "data/db/liquor.sqlite"
 
 with sqlite3.connect(DB_PATH) as con:
-
 
     con.execute("DROP TABLE IF EXISTS Store")
 
@@ -20,14 +20,14 @@ with sqlite3.connect(DB_PATH) as con:
             Zip_Code INTEGER NOT NULL,
             County TEXT NOT NULL,
             County_Number INTEGER,
-            Last_Update INTEGERDEFAULT CURRENT_TIMESTAMP NOT NULL,
-            PRIMARY KEY (Number, Last_Update)
+            Created INTEGER NOT NULL,
+            PRIMARY KEY (Number, Created)
         )"""
     )
 
     con.execute("DROP TABLE IF EXISTS Item")
 
-    # hash is an md5 of the other fields (except Last_Update)
+    # hash is an md5 of the other fields (except 'Created')
     # all fields mostly stable (max. 6 changes per Item_Number)
     # Category has ~0.1% missing (~17K of ~20M)
     con.execute("""
@@ -41,7 +41,7 @@ with sqlite3.connect(DB_PATH) as con:
             Description TEXT NOT NULL,
             Pack INTEGER NOT NULL,
             Bottle_Volume_ml INTEGER NOT NULL,
-            Last_Update INTEGER DEFAULT CURRENT_TIMESTAMP NOT NULL
+            Created INTEGER NOT NULL
         )"""
     )
 
@@ -65,7 +65,7 @@ with sqlite3.connect(DB_PATH) as con:
             Sale_USD REAL,
             Volume_Sold_Liters REAL NOT NULL,
             Volume_Sold_Gallons REAL NOT NULL,
-            Last_Update INTEGERDEFAULT CURRENT_TIMESTAMP NOT NULL,
+            Created INTEGER NOT NULL,
             FOREIGN KEY(Shop) REFERENCES Store(Number),
             FOREIGN KEY(Item) REFERENCES Item(Id)
         )"""

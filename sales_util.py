@@ -90,7 +90,7 @@ LIQUOR_ORDERED_COLS = [
 RAW_DATA_FOLDER = "data/raw"
 
 def read_liquor_csv(file_name='Liquor_Sales'):
-    """Read csv file and cast to optimal types"""
+    """Read csv file, cast to optimal types, and rename fields"""
     
     df = pd.read_csv(
         os.path.join(RAW_DATA_FOLDER, file_name + ".csv"),
