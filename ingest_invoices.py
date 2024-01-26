@@ -10,13 +10,26 @@ import hashlib # hashlib.algorithms_available
 
 import pandas as pd
 from sales_util import read_liquor_csv
-
-df = read_liquor_csv('day_1')
-
-
-
+import ctypes
+import math
 
 DB_PATH = "data/db/liquor.sqlite"
+
+
+STORE_SPECIFICS = "Name, Address, City, Zip_Code, Location, County_Number, County"
+
+
+SQL_INSERT_STORE = "INSERT INTO Store(Number, %s, Created) VALUES(?,?,?,?,?,?,?,?,?)" % STORE_SPECIFICS
+
+
+SQL_LATEST_STORE_BY_NUMBER = \
+    "SELECT %s FROM Store WHERE Number = ? ORDER BY Created DESC LIMIT 1" % STORE_SPECIFICS
+
+ITEM_ID_QUERY = "SELECT Id FROM Item WHERE Id = ? LIMIT 1"
+
+
+STORE_BY_NUMBER = "SELECT Id FROM Item WHERE Id = ? LIMIT 1"
+
 
 SQL_INSERT_ITEM = """INSERT INTO Item(
     Category, Category_Name, Item_Number,
@@ -24,15 +37,17 @@ SQL_INSERT_ITEM = """INSERT INTO Item(
     Pack, Bottle_Volume_ml, Id, Created)
     VALUES(?,?,?,?,?,?,?,?,?,?)"""
 
-SQL_INSERT_STORE = """INSERT INTO Store(
-    Number, Name, Address,
-    City, Zip_Code, County,
-    County_Number, Created)
-    VALUES(?,?,?,?,?,?,?,?,?,?)"""
+
+SQL_INSERT_INVOICE = """INSERT INTO Invoice(
+    Id, Date, Shop, Item, Bottle_Cost_USC,
+    Bottle_Retail_USC, Bottles_Sold, Sale_USD,
+    Volume_Sold_Liters, Volume_Sold_Gallons, Created)
+    VALUES(?,?,?,?,?,?,?,?,?,?,?)"""
 
 
+def to_nano(dt):
+    return int(dt.timestamp() * 10**9)
 
-import ctypes
 
 def toSigned32(n):
     # n = n & 0xffffffff
@@ -48,16 +63,33 @@ def item_id_hash(data):
 
     return int(hash.hexdigest(), 16) % 2 ** 32
 
-def synthetic_timestamp(assumed_day):
-    return int(datetime.combine(assumed_day, datetime.now().time()).timestamp())
 
-ITEM_ID_QUERY = "SELECT Id FROM Item WHERE Id = ?"
-STORE_BY_NUMBER = "SELECT Id FROM Item WHERE Id = ? LIMIT 1"
+def synthetic_timestamp(assumed_day):
+    return to_nano(datetime.combine(assumed_day, datetime.now().time()))
+
 
 def item_id_exists(id, con):
-    return (con.execute(ITEM_ID_QUERY,(id,)).fetchone() is not None)
+    cur = con.execute(ITEM_ID_QUERY,(id,)).fetchone()
+    return (cur != None)
 
-def process_invoice(row, cur):
+
+def store_specifics_match(data, con):
+    latest_data = con.execute(SQL_LATEST_STORE_BY_NUMBER, (data[0],)).fetchone()
+    #print("DB:", latest_data)
+    #print("MEM", tuple(data[1:-1]))
+    return latest_data == tuple(data[1:-1])
+
+
+def int_or_None(obj):
+   if not obj:
+        return None
+   if math.isnan(obj):
+        return None
+   else:
+       return int(obj)
+
+
+def process_invoice(row, con):
 
     # Item TABLE
 
@@ -65,42 +97,50 @@ def process_invoice(row, cur):
             row.Vendor_Number, row.Vendor_Name, row.Item_Description,
             row.Pack, row.Bottle_Volume_ml]
     
-    hash = item_id_hash(data) 
+    item_hash = item_id_hash(data) 
 
-    if not item_id_exists(hash, con):
-        data.append(hash)
+    if not item_id_exists(item_hash, con):
+        data.append(item_hash)
         data.append(synthetic_timestamp(row.Date))
         con.execute(SQL_INSERT_ITEM, data)
 
     # Store TABLE
 
-    data = [row.Store_Number, row.Store_Name, row.Address,
-            row.City, row.Zip_Code, row.Store_Location,
-            row.County_Number, row.County]
+    data = [int(row.Store_Number), row.Store_Name, row.Address,
+            row.City, int(row.Zip_Code), row.Store_Location,
+            int_or_None(row.County_Number), row.County, synthetic_timestamp(row.Date)]
 
+    if not store_specifics_match(data, con):
+        con.execute(SQL_INSERT_STORE, data)
+
+    # Invoice TABLE
+
+    data = [row.Invoice_Item_Number, int(row.Date.timestamp()), row.Store_Number, item_hash,
+            int_or_None(row.State_Bottle_Cost * 100), int_or_None(row.State_Bottle_Retail * 100),
+            row.Bottles_Sold, row.Sale_Dollars, row.Volume_Sold_Liters,
+            row.Volume_Sold_Gallons, synthetic_timestamp(row.Date)]
+    
+    con.execute(SQL_INSERT_INVOICE, data)
 
 
 def clear_table(table, con):
-    print(con.execute("DELETE FROM %s" % table).rowcount, "row(s) deleted from", table)
-
-with sqlite3.connect(DB_PATH) as con:
-
-    clear_table('Item', con)
-
-    i = 0
-
-    for row in df.itertuples():
-        process_invoice(row, con)
-        i += 1
-        if (i > 99):
-            break
+    print(con.execute("DELETE FROM %s" % table).rowcount, "row(s) deleted from:", table)
 
 
+def ingest_batch(batch_id,limit=9999999999,clear_tables=None):
 
+    df = read_liquor_csv(batch_id)
+    with sqlite3.connect(DB_PATH) as con:
 
-COLS = ['Invoice_Item_Number', 'Date', 'Store_Number', 'Store_Name', 'Address',
-       'City', 'Zip_Code', 'Store_Location', 'County_Number', 'County',
-       'Category', 'Category_Name', 'Vendor_Number', 'Vendor_Name',
-       'Item_Number', 'Item_Description', 'Pack', 'Bottle_Volume_ml',
-       'State_Bottle_Cost', 'State_Bottle_Retail', 'Bottles_Sold',
-       'Sale_Dollars', 'Volume_Sold_Liters', 'Volume_Sold_Gallons']
+        if(clear_tables):
+            for t in clear_tables:
+                clear_table(t, con)
+
+        for row in df.itertuples():
+            if limit <= 0:
+                break
+            process_invoice(row, con)
+            limit -= 1
+
+ingest_batch( 'day_1', limit=1000,
+    clear_tables=('Invoice', 'Store', 'Item'))

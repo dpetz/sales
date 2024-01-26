@@ -18,10 +18,10 @@ with sqlite3.connect(DB_PATH) as con:
             Address TEXT NOT NULL,
             City TEXT NOT NULL,
             Zip_Code INTEGER NOT NULL,
-            County TEXT NOT NULL,
+            Location TEXT NOT NULL,
             County_Number INTEGER,
-            Created INTEGER NOT NULL,
-            PRIMARY KEY (Number, Created)
+            County TEXT NOT NULL,
+            Created INTEGER NOT NULL
         )"""
     )
 
@@ -53,6 +53,7 @@ with sqlite3.connect(DB_PATH) as con:
     # Sales_USD = Bottles_Sold * Bottle_Retail_USC * 100
     # Liters sold can be calculated by looking up bottle volume in Item table
     # Missing values extremly rare (10 in ~20M)
+    # Dates are Days in UNIX timestamp (seconds since 2970-01-01) --> datetime(Date,'unixepoch') in SQLite
     con.execute("""
         CREATE TABLE IF NOT EXISTS Invoice (
             Id TEXT PRIMARY KEY NOT NULL,
