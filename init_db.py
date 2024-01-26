@@ -32,7 +32,7 @@ with sqlite3.connect(DB_PATH) as con:
     # Category has ~0.1% missing (~17K of ~20M)
     con.execute("""
         CREATE TABLE IF NOT EXISTS Item (
-            Id STRING PRIMARY KEY NOT NULL,
+            Id INTEGER PRIMARY KEY NOT NULL,
             Category INTEGER,
             Category_Name TEXT NOT NULL,
             Item_Number INTEGER NOT NULL,
