@@ -11,13 +11,14 @@ with sqlite3.connect(DB_PATH) as con:
     # Stores  change name or address occasionally (max 5)
     # County Number is unique per County
     # City and Zip Code closely relate (~10 overlap both ways)
+    # Zip Code has occasional string typos which will lead to NaNs
     con.execute("""
         CREATE TABLE IF NOT EXISTS Store (
             Number INTEGER NOT NULL,
             Name TEXT NOT NULL,
             Address TEXT NOT NULL,
             City TEXT NOT NULL,
-            Zip_Code INTEGER NOT NULL,
+            Zip_Code INTEGER,
             Location TEXT NOT NULL,
             County_Number INTEGER,
             County TEXT NOT NULL,

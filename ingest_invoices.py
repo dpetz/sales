@@ -12,31 +12,28 @@ import pandas as pd
 from sales_util import read_liquor_csv
 import ctypes
 import math
+import sys
 
 DB_PATH = "data/db/liquor.sqlite"
 
-
 STORE_SPECIFICS = "Name, Address, City, Zip_Code, Location, County_Number, County"
-
-
-SQL_INSERT_STORE = "INSERT INTO Store(Number, %s, Created) VALUES(?,?,?,?,?,?,?,?,?)" % STORE_SPECIFICS
-
 
 SQL_LATEST_STORE_BY_NUMBER = \
     "SELECT %s FROM Store WHERE Number = ? ORDER BY Created DESC LIMIT 1" % STORE_SPECIFICS
 
 ITEM_ID_QUERY = "SELECT Id FROM Item WHERE Id = ? LIMIT 1"
 
-
 STORE_BY_NUMBER = "SELECT Id FROM Item WHERE Id = ? LIMIT 1"
 
+SQL_INSERT_STORE = """INSERT INTO Store(
+    Number, %s, Created)
+    VALUES(?,?,?,?,?,?,?,?,?)""" % STORE_SPECIFICS
 
 SQL_INSERT_ITEM = """INSERT INTO Item(
     Category, Category_Name, Item_Number,
     Vendor_Number, Vendor_Name, Description,
     Pack, Bottle_Volume_ml, Id, Created)
     VALUES(?,?,?,?,?,?,?,?,?,?)"""
-
 
 SQL_INSERT_INVOICE = """INSERT INTO Invoice(
     Id, Date, Shop, Item, Bottle_Cost_USC,
@@ -83,10 +80,13 @@ def store_specifics_match(data, con):
 def int_or_None(obj):
    if not obj:
         return None
-   if math.isnan(obj):
+   if  obj == math.nan:
         return None
    else:
-       return int(obj)
+        try:
+            return int(obj)
+        except:
+            return None
 
 
 def process_invoice(row, con):
@@ -107,7 +107,7 @@ def process_invoice(row, con):
     # Store TABLE
 
     data = [int(row.Store_Number), row.Store_Name, row.Address,
-            row.City, int(row.Zip_Code), row.Store_Location,
+            row.City, int_or_None(row.Zip_Code), row.Store_Location,
             int_or_None(row.County_Number), row.County, synthetic_timestamp(row.Date)]
 
     if not store_specifics_match(data, con):
@@ -126,8 +126,7 @@ def process_invoice(row, con):
 def clear_table(table, con):
     print(con.execute("DELETE FROM %s" % table).rowcount, "row(s) deleted from:", table)
 
-
-def ingest_batch(batch_id,limit=9999999999,clear_tables=None):
+def ingest_batch(batch_id,limit=sys.maxsize,clear_tables=None):
 
     df = read_liquor_csv(batch_id)
     with sqlite3.connect(DB_PATH) as con:
@@ -142,5 +141,4 @@ def ingest_batch(batch_id,limit=9999999999,clear_tables=None):
             process_invoice(row, con)
             limit -= 1
 
-ingest_batch( 'day_1', limit=1000,
-    clear_tables=('Invoice', 'Store', 'Item'))
+ingest_batch( 'Liquor_Sales', clear_tables=('Invoice', 'Store', 'Item'))
