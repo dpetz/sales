@@ -1,6 +1,7 @@
 
 import sqlite3
 from datetime import datetime
+from datetime import timedelta
 import pickle
 # https://docs.python.org/3/library/hashlib.html
 import hashlib # hashlib.algorithms_available
@@ -13,8 +14,8 @@ from sales_util import read_liquor_csv
 import ctypes
 import math
 import sys
+import os
 
-DB_PATH = "data/db/liquor.sqlite"
 
 STORE_SPECIFICS = "Name, Address, City, Zip_Code, Location, County_Number, County"
 
@@ -89,7 +90,7 @@ def int_or_None(obj):
             return None
 
 
-def process_invoice(row, con):
+def process_invoice(row, con, report_delay = 1):
 
     # Item TABLE
 
@@ -108,7 +109,8 @@ def process_invoice(row, con):
 
     data = [int(row.Store_Number), row.Store_Name, row.Address,
             row.City, int_or_None(row.Zip_Code), row.Store_Location,
-            int_or_None(row.County_Number), row.County, synthetic_timestamp(row.Date)]
+            int_or_None(row.County_Number), row.County,
+            synthetic_timestamp(row.Date + timedelta(days=report_delay))]
 
     if not store_specifics_match(data, con):
         con.execute(SQL_INSERT_STORE, data)
@@ -126,10 +128,14 @@ def process_invoice(row, con):
 def clear_table(table, con):
     print(con.execute("DELETE FROM %s" % table).rowcount, "row(s) deleted from:", table)
 
-def ingest_batch(batch_id,limit=sys.maxsize,clear_tables=None):
+def ingest_batch(
+        batch_id_or_path,
+        limit=sys.maxsize,
+        clear_tables=None,
+        db_path = "data/db/liquor.sqlite"):
 
-    df = read_liquor_csv(batch_id)
-    with sqlite3.connect(DB_PATH) as con:
+    df = read_liquor_csv(batch_id_or_path)
+    with sqlite3.connect(db_path) as con:
 
         if(clear_tables):
             for t in clear_tables:
@@ -141,4 +147,36 @@ def ingest_batch(batch_id,limit=sys.maxsize,clear_tables=None):
             process_invoice(row, con)
             limit -= 1
 
-ingest_batch( 'Liquor_Sales', clear_tables=('Invoice', 'Store', 'Item'))
+TABLES = ('Invoice', 'Store', 'Item')
+
+# ingest_batch( 'Liquor_Sales', clear_tables=TABLES)
+
+from datetime import date
+
+
+def ingest_days(
+        folder_days="data/liquor_days/",
+        start_day='2012-01-03',
+        end_day='2020-09-30',
+        db_path = "data/db/days.sqlite"):
+    
+    # list of dat files within range
+
+    day_files = os.listdir(folder_days)
+    day_files.sort()
+
+    min_day, max_day = date.fromisoformat(start_day), date.fromisoformat(end_day)
+
+    day_files_in_range = [f for f in day_files if min_day <= date.fromisoformat(f[:-4]) <= max_day]
+
+    # ingest days
+
+
+    for i, dfile in enumerate(day_files_in_range):
+
+        clear = TABLES if (i == 0) else None
+
+        ingest_batch(os.path.join(folder_days, dfile), clear_tables=clear, db_path=db_path)
+
+if (__name__ == '__main__'):
+    ingest_days(end_day='2012-01-09')

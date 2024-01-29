@@ -92,8 +92,11 @@ RAW_DATA_FOLDER = "data/raw"
 def read_liquor_csv(file_name='Liquor_Sales'):
     """Read csv file, cast to optimal types, and rename fields"""
     
+    if not os.path.isfile(file_name):
+        os.path.join(RAW_DATA_FOLDER, file_name + ".csv")
+
     df = pd.read_csv(
-        os.path.join(RAW_DATA_FOLDER, file_name + ".csv"),
+        file_name,
         engine='pyarrow',
         dtype=LIQUOR_DTYPES)
 
