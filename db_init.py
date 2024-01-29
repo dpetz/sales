@@ -22,7 +22,7 @@ with sqlite3.connect(DB_PATH) as con:
             Location TEXT NOT NULL,
             County_Number INTEGER,
             County TEXT NOT NULL,
-            Created INTEGER NOT NULL
+            Created UNIQUE INTEGER NOT NULL
         )"""
     )
 
@@ -42,7 +42,7 @@ with sqlite3.connect(DB_PATH) as con:
             Description TEXT NOT NULL,
             Pack INTEGER NOT NULL,
             Bottle_Volume_ml INTEGER NOT NULL,
-            Created INTEGER NOT NULL
+            Created UNIQUE INTEGER NOT NULL
         )"""
     )
 
@@ -67,7 +67,7 @@ with sqlite3.connect(DB_PATH) as con:
             Sale_USD REAL,
             Volume_Sold_Liters REAL NOT NULL,
             Volume_Sold_Gallons REAL NOT NULL,
-            Created INTEGER NOT NULL,
+            Created UNIQUE INTEGER NOT NULL,
             FOREIGN KEY(Shop) REFERENCES Store(Number),
             FOREIGN KEY(Item) REFERENCES Item(Id)
         )"""

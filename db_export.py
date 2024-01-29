@@ -1,42 +1,56 @@
 import sqlite3
+import random
 
-DB_PATH = "data/db/liquor.sqlite"
-
-
-def create_indices():
-    with sqlite3.connect(DB_PATH) as con:
-        con.execute("CREATE UNIQUE INDEX Store_Create on Store(Create)")
-        con.execute("CREATE UNIQUE INDEX Item_Create on Item(Create)")
-        #con.execute("CREATE UNIQUE INDEX Invoice_Create on Invoice(Create)")
 
 
 def log_row (table, row, idxs):
-    print(row[-1], "{:<7}".format(table) ,
-          ' '.join([ '@'+i+' '+str(f) for (i,f) in enumerate(row[:-1])]))
+    #print (3*'\n', row, 3*'\n')
+    return "%i %s %s" % ( \
+        row[-1],
+        "{:<7}".format(table) ,
+         ' '.join([ "@%i %s" % (i,f) for (i,f) in enumerate(row[:-1])])
+    )
 
 
 def iterate_by_created(con, table):
-    yield con.execute("SELECT * from %s ORDERED BY Created" % table)
+    cur = con.execute("SELECT * from %s ORDER BY Created" % table)
+    yield cur.fetchone()
 
 
-def log_tables(*tables):
+def log_tables(*tables, db_path="data/db/days.sqlite", sample=1., seed=None,log_file="data/log/test.log"):
 
-    with sqlite3.connect(DB_PATH) as con:
+    random.seed(seed)
+
+    with sqlite3.connect(db_path) as con:
+
         
-        generators = [iterate_by_created(t) for t in tables]
-        rows = [next(generators[t]) for t in tables]
-        created = [rows[t][-1] for t in tables] # assumes Created is last column
-        indices_to_log = [range(len(r)-1) for r in rows]
+        generators = [iterate_by_created(con,t) for t in tables]
+        next_rows = [next(g) for g in generators]
+        created = [r[-1] for r in next_rows] # assumes Created is last column
+        indices_to_log = [range(len(r)-1) for r in next_rows]
 
-        while True:
-            idx_min = created.index(min(created))
-            log_row(tables[idx_min], rows[idx_min], indices_to_log[idx_min])
-            try:
-                rows[idx_min] = next(generators[idx_min])
-                created[idx_min] = rows[idx_min][-1]
-            except:
-                break
+        logged = 0
+
+        with open(log_file, 'wt') as lfile:
+
+            while True:
+                idx_min = created.index(min(created))
+                if (random.random() < sample):
+                    lfile.write(log_row(tables[idx_min], next_rows[idx_min], indices_to_log[idx_min]) + '\n')
+                    logged += 1
+                try:
+                    next_rows[idx_min] = next(generators[idx_min])
+                    created[idx_min] = next_rows[idx_min][-1]
+                except StopIteration:
+                    break
+
+        print("%i row logged to %s." % (logged, log_file))
+        
 
 
-log_tables('Store', 'Item')
+# log_tables('Store', 'Item', sample=1.)
 
+with sqlite3.connect("data/db/days.sqlite") as con:
+    gen = iterate_by_created(con,'Store')
+    print(next(gen))
+    print(next(gen))

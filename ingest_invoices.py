@@ -1,7 +1,8 @@
-
+from tqdm import tqdm
 import sqlite3
 from datetime import datetime
 from datetime import timedelta
+from datetime import date
 import pickle
 # https://docs.python.org/3/library/hashlib.html
 import hashlib # hashlib.algorithms_available
@@ -16,6 +17,7 @@ import math
 import sys
 import os
 
+TABLES = ('Invoice', 'Store', 'Item')
 
 STORE_SPECIFICS = "Name, Address, City, Zip_Code, Location, County_Number, County"
 
@@ -141,17 +143,11 @@ def ingest_batch(
             for t in clear_tables:
                 clear_table(t, con)
 
-        for row in df.itertuples():
+        for row in tqdm(df.itertuples(), desc=batch_id_or_path):
             if limit <= 0:
                 break
             process_invoice(row, con)
             limit -= 1
-
-TABLES = ('Invoice', 'Store', 'Item')
-
-# ingest_batch( 'Liquor_Sales', clear_tables=TABLES)
-
-from datetime import date
 
 
 def ingest_days(
@@ -160,7 +156,7 @@ def ingest_days(
         end_day='2020-09-30',
         db_path = "data/db/days.sqlite"):
     
-    # list of dat files within range
+    # date files within range
 
     day_files = os.listdir(folder_days)
     day_files.sort()
@@ -171,12 +167,13 @@ def ingest_days(
 
     # ingest days
 
-
-    for i, dfile in enumerate(day_files_in_range):
+    for i, dfile in enumerate(tqdm(day_files_in_range, desc="%s to %s" % (start_day, end_day))):
 
         clear = TABLES if (i == 0) else None
-
         ingest_batch(os.path.join(folder_days, dfile), clear_tables=clear, db_path=db_path)
 
 if (__name__ == '__main__'):
     ingest_days(end_day='2012-01-09')
+else:
+    pass
+    # ingest_batch( 'Liquor_Sales', clear_tables=TABLES)
