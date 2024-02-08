@@ -12,6 +12,7 @@ import hashlib # hashlib.algorithms_available
 
 import pandas as pd
 from sales_util import read_liquor_csv
+from db_init import init_all_tables
 import ctypes
 import math
 import sys
@@ -19,23 +20,23 @@ import os
 
 TABLES = ('Invoice', 'Store', 'Item')
 
+ITEM_ID_QUERY = "SELECT Hash FROM Item WHERE Hash = ? LIMIT 1"
+
+STORE_BY_NUMBER = "SELECT Id FROM Item WHERE Hash = ? LIMIT 1"
+
 STORE_SPECIFICS = "Name, Address, City, Zip_Code, Location, County_Number, County"
 
 SQL_LATEST_STORE_BY_NUMBER = \
-    "SELECT %s FROM Store WHERE Number = ? ORDER BY Created DESC LIMIT 1" % STORE_SPECIFICS
-
-ITEM_ID_QUERY = "SELECT Id FROM Item WHERE Id = ? LIMIT 1"
-
-STORE_BY_NUMBER = "SELECT Id FROM Item WHERE Id = ? LIMIT 1"
+    "SELECT %s FROM Store WHERE Id = ? ORDER BY Created DESC LIMIT 1" % STORE_SPECIFICS
 
 SQL_INSERT_STORE = """INSERT INTO Store(
-    Number, %s, Created)
+    Id, %s, Created)
     VALUES(?,?,?,?,?,?,?,?,?)""" % STORE_SPECIFICS
 
 SQL_INSERT_ITEM = """INSERT INTO Item(
     Category, Category_Name, Item_Number,
     Vendor_Number, Vendor_Name, Description,
-    Pack, Bottle_Volume_ml, Id, Created)
+    Pack, Bottle_Volume_ml, Hash, Created)
     VALUES(?,?,?,?,?,?,?,?,?,?)"""
 
 SQL_INSERT_INVOICE = """INSERT INTO Invoice(
@@ -115,7 +116,10 @@ def process_invoice(row, con, report_delay = 1):
             synthetic_timestamp(row.Date + timedelta(days=report_delay))]
 
     if not store_specifics_match(data, con):
-        con.execute(SQL_INSERT_STORE, data)
+        try:
+            con.execute(SQL_INSERT_STORE, data)
+        except:
+            print(data)
 
     # Invoice TABLE
 
@@ -173,7 +177,16 @@ def ingest_days(
         ingest_batch(os.path.join(folder_days, dfile), clear_tables=clear, db_path=db_path)
 
 if (__name__ == '__main__'):
-    ingest_days(end_day='2012-01-09')
-else:
-    pass
-    # ingest_batch( 'Liquor_Sales', clear_tables=TABLES)
+
+    jobs = ('days', 'march-2012')
+
+    if (len(sys.argv) < 2) or (not sys.argv[1] in jobs):
+        print("job expected:", ', '.join(jobs))
+
+    elif sys.argv[1] == 'days':
+        ingest_days(end_day='2012-01-09')
+    
+    elif sys.argv[1] == 'march-2012':
+        db = "data/db/march-2012.sqlite"
+        init_all_tables(db_path=db)
+        ingest_days(start_day='2012-03-01', end_day='2012-03-31', db_path = db)

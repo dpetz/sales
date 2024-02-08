@@ -8,14 +8,13 @@ def log_row (table, row, idxs):
     return "%i %s %s" % ( \
         row[-1],
         "{:<7}".format(table) ,
-         ' '.join([ "@%i %s" % (i,f) for (i,f) in enumerate(row[:-1])])
+         ' '.join([ "@%i %s" % (i+1,f) for (i,f) in enumerate(row[:-1])])
     )
 
 
 def iterate_by_created(con, table):
-    cur = con.execute("SELECT * from %s ORDER BY Created" % table)
-    yield cur.fetchone()
-
+    return con.execute("SELECT * from %s ORDER BY Created" % table)
+    
 
 def log_tables(*tables, db_path="data/db/days.sqlite", sample=1., seed=None,log_file="data/log/test.log"):
 
@@ -46,11 +45,11 @@ def log_tables(*tables, db_path="data/db/days.sqlite", sample=1., seed=None,log_
 
         print("%i row logged to %s." % (logged, log_file))
         
+def test():
+    with sqlite3.connect("data/db/days.sqlite") as con:
+        gen = iterate_by_created(con,'Store')
+        print(next(gen))
+        print(next(gen))
 
+log_tables('Store', 'Item', 'Invoice', sample=1.)
 
-# log_tables('Store', 'Item', sample=1.)
-
-with sqlite3.connect("data/db/days.sqlite") as con:
-    gen = iterate_by_created(con,'Store')
-    print(next(gen))
-    print(next(gen))
